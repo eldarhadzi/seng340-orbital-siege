@@ -1,0 +1,34 @@
+# ─── Dependencies ────────────────────────────────────────────────
+node_modules/
+
+# ─── Build Output ────────────────────────────────────────────────
+dist/
+dist-ssr/
+
+# ─── TypeScript ──────────────────────────────────────────────────
+*.tsbuildinfo
+
+# ─── Environment ─────────────────────────────────────────────────
+.env
+.env.local
+.env.production
+
+# ─── OS Files ────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+Desktop.ini
+
+# ─── VS Code (keep workspace settings, ignore personal settings) ─
+.vscode/settings.json
+.vscode/launch.json
+!.vscode/extensions.json
+
+# ─── Logs ────────────────────────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# ─── Test Coverage ───────────────────────────────────────────────
+coverage/

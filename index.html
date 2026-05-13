@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Orbital Siege — SENG 340 Final Project" />
+    <title>Orbital Siege | SENG 340</title>
+
+    <style>
+      /* ── Reset ── */
+      *, *::before, *::after {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      /* ── Full-screen black background ── */
+      html, body {
+        width: 100%;
+        height: 100%;
+        background-color: #000000;
+        overflow: hidden;
+      }
+
+      /* ── Center Phaser's canvas in the viewport ── */
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      /* ── Phaser injects a <canvas> element — style it ── */
+      canvas {
+        display: block;
+        /* 
+          Phaser handles its own resolution/scaling.
+          We just make sure the canvas is pixel-crisp.
+          image-rendering: pixelated is important for pixel-art sprites.
+        */
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+      }
+
+      /* ── Loading fallback text (visible before Phaser initializes) ── */
+      #loading-fallback {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: #4a9eff;
+        font-family: monospace;
+        font-size: 18px;
+        letter-spacing: 4px;
+        text-transform: uppercase;
+        pointer-events: none;
+        z-index: 0;
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- Visible briefly before Phaser's canvas renders -->
+    <div id="loading-fallback">INITIALIZING...</div>
+
+    <!-- 
+      Phaser's Game constructor will inject a <canvas> element into <body>.
+      The loading-fallback div will be hidden once the canvas appears.
+      
+      type="module" is required for ES module imports (Vite + TypeScript).
+    -->
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

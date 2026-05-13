@@ -1,0 +1,26 @@
+{
+  "name": "final_project",
+  "version": "1.0.0",
+  "description": "SENG 340 Computer Games & Simulation — Orbital Siege. A physics-based space defense game featuring gravitational simulation, orbital mechanics, and wave-based gameplay.",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --port 8080",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts --max-warnings 0",
+    "format": "prettier --write \"src/**/*.ts\""
+  },
+  "dependencies": {
+    "phaser": "3.60.0"
+  },
+  "devDependencies": {
+    "@types/node": "20.12.7",
+    "typescript": "5.4.5",
+    "vite": "5.2.0"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  }
+}
