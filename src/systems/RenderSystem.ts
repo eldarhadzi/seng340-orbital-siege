@@ -63,8 +63,6 @@ export class RenderSystem {
 
   // Starfield data
   private stars:          Star[] = [];
-  private starScrollX:    number = 0;
-  private starScrollY:    number = 0;
 
   // Debug toggle
   private debugEnabled:   boolean = false;
@@ -277,7 +275,7 @@ export class RenderSystem {
 
   // ─── Orbital Trails ───────────────────────────────────────────────────────
 
-  private renderOrbitalTrails(entities: BaseEntity[], alpha: number): void {
+  private renderOrbitalTrails(entities: BaseEntity[], _alpha: number): void {
     for (const entity of entities) {
       const history = this.trailHistory.get(entity.id);
       if (!history || history.length < 2) { continue; }
@@ -315,13 +313,7 @@ export class RenderSystem {
 
     // Add current interpolated position to each entity's trail
     for (const entity of entities) {
-      const sc = this.camera.getInterpolatedScreenPos(
-        entity.transform.prevPosition,
-        entity.transform.position,
-        alpha
-      );
-
-      // Store world-space position for trails
+      // Store world-space interpolated position for trail rendering
       const worldPos = new Vector2(
         MathUtils.lerp(entity.transform.prevPosition.x, entity.transform.position.x, alpha),
         MathUtils.lerp(entity.transform.prevPosition.y, entity.transform.position.y, alpha)
@@ -334,7 +326,6 @@ export class RenderSystem {
       const history = this.trailHistory.get(entity.id)!;
       history.push(worldPos);
 
-      // Trim to max length
       if (history.length > maxHistory) {
         history.shift();
       }
@@ -568,7 +559,7 @@ export class RenderSystem {
   private renderProjectile(
     projectile: Projectile,
     sc: { x: number; y: number },
-    rotation: number
+    _rotation: number
   ): void {
     // Glowing bullet
     this.worldGfx.fillStyle(0xffdd00, 0.3);

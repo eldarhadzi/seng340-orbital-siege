@@ -198,19 +198,18 @@ export class CameraSystem {
 
   /** Screen flash effect — used for damage, explosions, etc. */
   flash(
-    color: number   = RenderConfig.FLASH_DAMAGE_COLOR,
-    alpha: number   = RenderConfig.FLASH_DAMAGE_ALPHA,
+    color: number    = RenderConfig.FLASH_DAMAGE_COLOR,
+    _alpha: number   = RenderConfig.FLASH_DAMAGE_ALPHA,
     duration: number = RenderConfig.FLASH_DAMAGE_DURATION_MS
   ): void {
     this.scene.cameras.main.flash(
       duration,
-      (color >> 16) & 0xff,        // R
-      (color >> 8)  & 0xff,        // G
-       color        & 0xff,        // B
+      (color >> 16) & 0xff,
+      (color >> 8)  & 0xff,
+       color        & 0xff,
       false,
-      (_cam: Phaser.Cameras.Scene2D.Camera, progress: number) => {
-        // Progress callback — could drive additional effects
-        void progress;
+      (_cam: Phaser.Cameras.Scene2D.Camera, _progress: number) => {
+        // Flash progress callback
       }
     );
   }

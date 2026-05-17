@@ -7,7 +7,6 @@ import Phaser from 'phaser';
 import { SceneKeys } from '@utils/Constants';
 import { RenderConfig } from '@config/RenderConfig';
 import { hudData } from '@managers/HUDDataModel';
-import { MathUtils } from '@utils/MathUtils';
 
 export class UIScene extends Phaser.Scene {
   private gfx!:            Phaser.GameObjects.Graphics;

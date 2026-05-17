@@ -5,7 +5,6 @@
 
 import Phaser from 'phaser';
 import { SceneKeys, Tags, GameEvents } from '@utils/Constants';
-import { RenderConfig } from '@config/RenderConfig';
 import { PhysicsConfig } from '@config/PhysicsConfig';
 import { GravitySystem } from '@systems/GravitySystem';
 import { CollisionSystem } from '@systems/CollisionSystem';
@@ -53,7 +52,6 @@ export class GameScene extends Phaser.Scene {
   private score:            number = 0;
 
   // ── Input ─────────────────────────────────────────────────────────────────
-  private cursors!:    Phaser.Types.Input.Keyboard.CursorKeys;
   private mouseWorld:  Vector2 = new Vector2();
 
   constructor() {
@@ -96,9 +94,6 @@ export class GameScene extends Phaser.Scene {
 
     // ── Spawn Initial Asteroids ────────────────────────────────────────────
     this.spawnWaveAsteroids(5);
-
-    // ── Input ──────────────────────────────────────────────────────────────
-    this.cursors = this.input.keyboard!.createCursorKeys();
 
     // Debug toggle — D key
     this.input.keyboard!.on('keydown-D', () => {

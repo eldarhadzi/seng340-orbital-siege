@@ -19,7 +19,6 @@
 // Each particle is a colored circle scaled by its life progress.
 // No sprites needed — pure geometry rendering.
 
-import { Vector2 } from '@utils/Vector2';
 import { MathUtils } from '@utils/MathUtils';
 import { RenderConfig } from '@config/RenderConfig';
 import { Poolable } from '@utils/ObjectPool';

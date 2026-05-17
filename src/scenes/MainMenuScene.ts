@@ -11,7 +11,7 @@ import { saveManager } from '@managers/SaveManager';
 export class MainMenuScene extends Phaser.Scene {
   private bgGfx!:       Phaser.GameObjects.Graphics;
   private stars:        { x: number; y: number; r: number; a: number }[] = [];
-  private time:         number = 0;
+  private _elapsed: number = 0;
   private menuItems:    Phaser.GameObjects.Text[] = [];
 
   constructor() {
@@ -110,8 +110,8 @@ export class MainMenuScene extends Phaser.Scene {
     console.log('[MainMenu] Help — coming in Phase 6');
   }
 
-  update(time: number, delta: number): void {
-    this.time += delta / 1000;
+  update( delta: number): void {
+    this._elapsed += delta / 1000;
     this.bgGfx.clear();
 
     // Animated background
@@ -119,14 +119,14 @@ export class MainMenuScene extends Phaser.Scene {
     this.bgGfx.fillRect(0, 0, RenderConfig.WIDTH, RenderConfig.HEIGHT);
 
     for (const star of this.stars) {
-      const twinkle = 0.5 + 0.5 * Math.sin(this.time * 1.5 + star.x * 0.01);
+      const twinkle = 0.5 + 0.5 * Math.sin(this._elapsed * 1.5 + star.x * 0.01);
       this.bgGfx.fillStyle(0xffffff, star.a * twinkle);
       this.bgGfx.fillCircle(star.x, star.y, star.r);
     }
 
     // Orbiting demo asteroid
     const orbitR  = 120;
-    const angle   = this.time * 0.4;
+    const angle   = this._elapsed * 0.4;
     const cx      = RenderConfig.WIDTH  / 2;
     const cy      = RenderConfig.HEIGHT / 2 - 160;
     const ax      = cx + Math.cos(angle) * orbitR;
