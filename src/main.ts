@@ -1,5 +1,4 @@
-// src/main.ts — Phase 4: Full scene pipeline
-
+// src/main.ts — Phase 5
 import Phaser from 'phaser';
 import { GameConfig } from '@config/GameConfig';
 import { BootScene }     from '@scenes/BootScene';
@@ -7,6 +6,7 @@ import { PreloadScene }  from '@scenes/PreloadScene';
 import { MainMenuScene } from '@scenes/MainMenuScene';
 import { GameScene }     from '@scenes/GameScene';
 import { UIScene }       from '@scenes/UIScene';
+import { GameOverScene } from '@scenes/GameOverScene';
 
 const config: Phaser.Types.Core.GameConfig = {
   ...GameConfig,
@@ -16,6 +16,7 @@ const config: Phaser.Types.Core.GameConfig = {
     MainMenuScene,
     GameScene,
     UIScene,
+    GameOverScene,
   ],
 };
 

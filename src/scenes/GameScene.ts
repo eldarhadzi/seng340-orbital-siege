@@ -1,7 +1,4 @@
-// src/scenes/GameScene.ts
-//
-// PRIMARY SIMULATION SCENE — the game loop director.
-// Owns and coordinates all systems. Renders the game world.
+// src/scenes/GameScene.ts — Phase 5: Full gameplay implementation
 
 import Phaser from 'phaser';
 import { SceneKeys, Tags, GameEvents } from '@utils/Constants';
@@ -13,8 +10,15 @@ import { TrajectorySystem } from '@systems/TrajectorySystem';
 import { CameraSystem } from '@systems/CameraSystem';
 import { ParticleSystem } from '@systems/ParticleSystem';
 import { RenderSystem } from '@systems/RenderSystem';
+import { InputSystem } from '@systems/InputSystem';
+import { WeaponSystem } from '@systems/WeaponSystem';
+import { SpawnSystem } from '@systems/SpawnSystem';
+import { WaveSystem } from '@systems/WaveSystem';
+import { ScoreManager } from '@managers/ScoreManager';
+import { StateManager } from '@managers/StateManager';
 import { entityManager } from '@managers/EntityManager';
 import { hudData } from '@managers/HUDDataModel';
+import { saveManager } from '@managers/SaveManager';
 import { eventBus } from '@managers/EventManager';
 import { Vector2 } from '@utils/Vector2';
 import { MathUtils } from '@utils/MathUtils';
@@ -22,12 +26,12 @@ import { ObjectPool } from '@utils/ObjectPool';
 import { Asteroid } from '@entities/Asteroid';
 import { Projectile } from '@entities/Projectile';
 import { Station } from '@entities/Station';
-import { AsteroidSize, WeaponType } from '@typedefs/GameTypes';
+import { DroneEnemy } from '@entities/enemies/DroneEnemy';
+import { AsteroidSize, WeaponType, WaveDefinition } from '@typedefs/GameTypes';
 import { TrajectoryPoint } from '@typedefs/PhysicsTypes';
-import { CooldownTimer } from '@utils/Timer';
 
 export class GameScene extends Phaser.Scene {
-  // ── Systems ─────────────────────────────────────────────────────────────
+  // ── Systems ──────────────────────────────────────────────────────────────
   private gravitySystem!:    GravitySystem;
   private collisionSystem!:  CollisionSystem;
   private physicsSystem!:    PhysicsSystem;
@@ -35,24 +39,25 @@ export class GameScene extends Phaser.Scene {
   private cameraSystem!:     CameraSystem;
   private particleSystem!:   ParticleSystem;
   private renderSystem!:     RenderSystem;
+  private inputSystem!:      InputSystem;
+  private weaponSystem!:     WeaponSystem;
+  private spawnSystem!:      SpawnSystem;
+  private waveSystem!:       WaveSystem;
+  private scoreManager!:     ScoreManager;
+  private stateManager!:     StateManager;
 
-  // ── Entity Pools ─────────────────────────────────────────────────────────
-  private asteroidPool!:    ObjectPool<Asteroid>;
-  private projectilePool!:  ObjectPool<Projectile>;
+  // ── Pools ─────────────────────────────────────────────────────────────────
+  private asteroidPool!:  ObjectPool<Asteroid>;
+  private projectilePool!: ObjectPool<Projectile>;
+  private dronePool!:     ObjectPool<DroneEnemy>;
 
-  // ── Core Entities ────────────────────────────────────────────────────────
+  // ── Core entities ─────────────────────────────────────────────────────────
   private station!: Station;
 
-  // ── State ────────────────────────────────────────────────────────────────
-  private trajectory:       TrajectoryPoint[] = [];
-  private renderAlpha:      number = 0;
-  private fireTimer:        CooldownTimer = new CooldownTimer(250);
-  private trailTimer:       CooldownTimer = new CooldownTimer(50);
-  private spawnTimer:       CooldownTimer = new CooldownTimer(2000);
-  private score:            number = 0;
-
-  // ── Input ─────────────────────────────────────────────────────────────────
-  private mouseWorld:  Vector2 = new Vector2();
+  // ── State ─────────────────────────────────────────────────────────────────
+  private trajectory:   TrajectoryPoint[] = [];
+  private renderAlpha:  number = 0;
+  private gameOver:     boolean = false;
 
   constructor() {
     super({ key: SceneKeys.GAME });
@@ -60,10 +65,16 @@ export class GameScene extends Phaser.Scene {
 
   // ─── Lifecycle ────────────────────────────────────────────────────────────
 
-  create(): void {
-    entityManager.clear();
+  preload(): void {
+    this.load.json('waves', '/assets/data/waves.json');
+  }
 
-    // ── Initialize Systems ─────────────────────────────────────────────────
+  create(): void {
+    // Reset all singletons for new game
+    entityManager.clear();
+    hudData.reset();
+
+    // ── Systems ────────────────────────────────────────────────────────────
     this.gravitySystem    = new GravitySystem();
     this.collisionSystem  = new CollisionSystem();
     this.physicsSystem    = new PhysicsSystem(this.gravitySystem, this.collisionSystem);
@@ -73,7 +84,7 @@ export class GameScene extends Phaser.Scene {
     this.renderSystem     = new RenderSystem(this, this.cameraSystem, this.particleSystem);
     this.renderSystem.init();
 
-    // ── Gravity Well ───────────────────────────────────────────────────────
+    // ── Gravity well ───────────────────────────────────────────────────────
     this.gravitySystem.addSource({
       id:          'central_star',
       position:    new Vector2(0, 0),
@@ -83,315 +94,391 @@ export class GameScene extends Phaser.Scene {
       active:      true,
     });
 
-    // ── Object Pools ───────────────────────────────────────────────────────
-    this.asteroidPool   = new ObjectPool(() => new Asteroid(),   20, 80, 'Asteroids');
-    this.projectilePool = new ObjectPool(() => new Projectile(), 50, 100, 'Projectiles');
+    // ── Pools ──────────────────────────────────────────────────────────────
+    this.asteroidPool   = new ObjectPool(() => new Asteroid(),    20, 80,  'Asteroids');
+    this.projectilePool = new ObjectPool(() => new Projectile(),  50, 100, 'Projectiles');
+    this.dronePool      = new ObjectPool(() => new DroneEnemy(),  10, 20,  'Drones');
 
     // ── Station ────────────────────────────────────────────────────────────
     this.station = new Station();
     this.station.init(new Vector2(0, 0));
     entityManager.register(this.station);
 
-    // ── Spawn Initial Asteroids ────────────────────────────────────────────
-    this.spawnWaveAsteroids(5);
+    // ── Weapon system ──────────────────────────────────────────────────────
+    this.weaponSystem = new WeaponSystem(this.projectilePool, this.station.id);
 
-    // Debug toggle — D key
+    // ── Spawn + Wave systems ───────────────────────────────────────────────
+    this.spawnSystem = new SpawnSystem(
+      this.gravitySystem,
+      this.asteroidPool,
+      this.dronePool
+    );
+
+    this.waveSystem = new WaveSystem(this.spawnSystem);
+
+    // ── Score + State ──────────────────────────────────────────────────────
+    this.scoreManager = new ScoreManager(saveManager.highScore);
+    this.stateManager = new StateManager();
+
+    // ── Input ──────────────────────────────────────────────────────────────
+    this.inputSystem = new InputSystem(this, this.cameraSystem);
+
+    // ── Event listeners ────────────────────────────────────────────────────
+    this.setupEventListeners();
+
+    // ── Debug toggle ───────────────────────────────────────────────────────
     this.input.keyboard!.on('keydown-D', () => {
       this.renderSystem.toggleDebug();
     });
 
-    // ── Event Listeners ────────────────────────────────────────────────────
-    this.setupEventListeners();
+    // ── Weapon switch (1/2 keys) ───────────────────────────────────────────
+    this.input.keyboard!.on('keydown-ONE', () => {
+      this.weaponSystem.switchWeapon(WeaponType.CANNON);
+    });
+    this.input.keyboard!.on('keydown-TWO', () => {
+      this.weaponSystem.switchWeapon(WeaponType.MISSILE);
+    });
 
-    // ── Initial trajectory preview ─────────────────────────────────────────
-    this.updateTrajectory();
+    // ── Load wave data and start ───────────────────────────────────────────
+    this.loadAndStartWaves();
 
-    console.log('[GameScene] Game world initialized. Press D for debug overlay.');
+    console.log('[GameScene] Phase 5 — Full gameplay active.');
+    console.log('Controls: Mouse aim | Left click fire | 1=Cannon 2=Missile | D=Debug');
   }
 
-  // ─── Event Wiring ─────────────────────────────────────────────────────────
+  // ─── Wave Loading ─────────────────────────────────────────────────────────
+
+  private loadAndStartWaves(): void {
+    const waveData = this.cache.json.get('waves') as { waves: WaveDefinition[] } | null;
+
+    if (waveData && waveData.waves) {
+      this.waveSystem.loadWaveDefinitions(waveData.waves);
+      this.waveSystem.startWaves();
+    } else {
+      console.warn('[GameScene] waves.json not found — using fallback waves.');
+      this.waveSystem.loadWaveDefinitions(this.getFallbackWaves());
+      this.waveSystem.startWaves();
+    }
+  }
+
+  private getFallbackWaves(): WaveDefinition[] {
+    return [
+      {
+        waveNumber: 1,
+        asteroidCount: 4,
+        asteroidSizes: [AsteroidSize.LARGE, AsteroidSize.LARGE, AsteroidSize.MEDIUM, AsteroidSize.MEDIUM],
+        enemyCount: 0, enemyTypes: [],
+        spawnPattern: 'RADIAL' as never,
+        spawnIntervalMs: 1200,
+        gravityMultiplier: 1.0,
+        specialEvents: [],
+      },
+      {
+        waveNumber: 2,
+        asteroidCount: 5,
+        asteroidSizes: [AsteroidSize.LARGE, AsteroidSize.LARGE, AsteroidSize.MEDIUM, AsteroidSize.MEDIUM, AsteroidSize.SMALL],
+        enemyCount: 1, enemyTypes: ['DRONE' as never],
+        spawnPattern: 'RADIAL' as never,
+        spawnIntervalMs: 1000,
+        gravityMultiplier: 1.05,
+        specialEvents: [],
+      },
+    ];
+  }
+
+  // ─── Event Listeners ──────────────────────────────────────────────────────
 
   private setupEventListeners(): void {
-    // Out-of-bounds entities
     eventBus.on(GameEvents.ENTITY_DESTROYED, (data: unknown) => {
-      const d = data as { entityId: string; tag: string; reason: string };
+      const d = data as { entityId: string; reason: string };
       if (d.reason === 'out_of_bounds') {
         const entity = entityManager.getById(d.entityId);
         if (entity) {
           entityManager.unregister(entity);
           entity.active = false;
+
+          // Return to pool based on tag
+          if (entity instanceof Asteroid) {
+            this.asteroidPool.release(entity as Asteroid);
+          } else if (entity instanceof Projectile) {
+            this.projectilePool.release(entity as Projectile);
+          } else if (entity instanceof DroneEnemy) {
+            this.dronePool.release(entity as DroneEnemy);
+          }
         }
       }
     });
 
-    // Collisions → screen shake + particles
-    eventBus.on(GameEvents.COLLISION_OCCURRED, (data: unknown) => {
-      const manifold = data as { entityAId: string; entityBId: string; contactPoint: { x: number; y: number } };
-      this.cameraSystem.addTrauma(0.15);
-      this.particleSystem.spawnTrail(
-        manifold.contactPoint.x,
-        manifold.contactPoint.y,
-        0xff8833
-      );
+    eventBus.on(GameEvents.WAVE_COMPLETED, (data: unknown) => {
+      const d = data as { waveNumber: number };
+      this.scoreManager.onWaveComplete(d.waveNumber);
+      hudData.waveComplete = true;
+    });
+
+    eventBus.on(GameEvents.WAVE_STARTED, (data: unknown) => {
+      const d = data as { waveNumber: number };
+      hudData.waveNumber   = d.waveNumber;
+      hudData.waveComplete = false;
+    });
+
+    eventBus.on(GameEvents.ALL_WAVES_COMPLETE, () => {
+      this.stateManager.triggerVictory();
+      this.time.delayedCall(2000, () => {
+        this.endGame(true);
+      });
     });
   }
 
-  // ─── Spawning ─────────────────────────────────────────────────────────────
+  // ─── Collision Handling ───────────────────────────────────────────────────
 
-  private spawnWaveAsteroids(count: number): void {
-    for (let i = 0; i < count; i++) {
-      this.spawnAsteroid(
-        i % 2 === 0 ? AsteroidSize.LARGE : AsteroidSize.MEDIUM
-      );
-    }
-  }
-
-  private spawnAsteroid(size: AsteroidSize): void {
-    const asteroid = this.asteroidPool.acquire();
-    if (!asteroid) { return; }
-
-    // Spawn outside visible area
-    const angle   = MathUtils.randomRange(0, Math.PI * 2);
-    const spawnR  = PhysicsConfig.SPAWN_RADIUS * 0.6; // Closer for demo
-    const pos     = new Vector2(
-      Math.cos(angle) * spawnR,
-      Math.sin(angle) * spawnR
-    );
-
-    // Circular orbit + perturbation
-    const orbitSpeed = this.gravitySystem.getCircularOrbitSpeed(spawnR) * 0.85;
-    const tangent    = this.gravitySystem.getOrbitalTangent(pos, 'central_star', true);
-    const vel        = tangent.scale(orbitSpeed);
-
-    asteroid.init(pos, vel, size);
-    entityManager.register(asteroid);
-  }
-
-  private fireProjectile(): void {
-    if (!this.fireTimer.isReady) { return; }
-
-    const projectile = this.projectilePool.acquire();
-    if (!projectile) { return; }
-
-    const angle   = this.station.aimAngle;
-    const spawnR  = this.station.collider.radius + 12;
-    const pos     = new Vector2(
-      Math.cos(angle) * spawnR,
-      Math.sin(angle) * spawnR
-    );
-    const vel = new Vector2(
-      Math.cos(angle) * 900,
-      Math.sin(angle) * 900
-    );
-
-    projectile.init(pos, vel, WeaponType.CANNON, 18, this.station.id);
-    entityManager.register(projectile);
-
-    this.fireTimer.trigger();
-
-    // Slight camera kick on fire
-    this.cameraSystem.addTrauma(0.05);
-  }
-
-  // ─── Aim / Trajectory ─────────────────────────────────────────────────────
-
-  private updateAim(): void {
-    const pointer = this.input.activePointer;
-
-    // Convert screen mouse to world coordinates
-    this.mouseWorld = this.cameraSystem.screenToWorld(pointer.x, pointer.y);
-
-    // Station aims at mouse (from world origin)
-    this.station.aimAngle = Math.atan2(this.mouseWorld.y, this.mouseWorld.x);
-  }
-
-  private updateTrajectory(): void {
-    const angle  = this.station.aimAngle;
-    const spawnR = this.station.collider.radius + 12;
-    const startPos = new Vector2(
-      Math.cos(angle) * spawnR,
-      Math.sin(angle) * spawnR
-    );
-    const startVel = new Vector2(
-      Math.cos(angle) * 900,
-      Math.sin(angle) * 900
-    );
-
-    this.trajectory = this.trajectorySystem.predict(startPos, startVel, 1.0);
-  }
-
-  // ─── Collision Response ───────────────────────────────────────────────────
-
-  private processCollisionResults(): void {
+  private processHits(): void {
     const asteroids   = entityManager.getByTag(Tags.ASTEROID) as Asteroid[];
+    const enemies     = entityManager.getByTag(Tags.ENEMY)    as DroneEnemy[];
     const projectiles = entityManager.getByTag(Tags.PROJECTILE) as Projectile[];
 
-    // Check projectile hits
+    // ── Projectile vs Asteroid ─────────────────────────────────────────────
     for (const proj of projectiles) {
       if (!proj.active) { continue; }
 
+      // Expired projectile cleanup
       if (proj.hasExpired) {
         entityManager.unregister(proj);
         this.projectilePool.release(proj);
         continue;
       }
 
+      // vs asteroids
       for (const asteroid of asteroids) {
         if (!asteroid.active) { continue; }
+        if (this.collisionSystem.testCircleVsCircle(proj, asteroid)) {
+          this.handleProjectileAsteroid(proj, asteroid);
+          break;
+        }
+      }
 
-        const manifold = this.collisionSystem.testCircleVsCircle(proj, asteroid);
-        if (manifold) {
-          this.handleProjectileHit(proj, asteroid);
+      // vs enemies
+      if (!proj.active) { continue; }
+      for (const enemy of enemies) {
+        if (!enemy.active) { continue; }
+        if (this.collisionSystem.testCircleVsCircle(proj, enemy)) {
+          this.handleProjectileEnemy(proj, enemy);
           break;
         }
       }
     }
 
-    // Check asteroid hits on station
+    // ── Asteroid / Enemy vs Station ────────────────────────────────────────
     for (const asteroid of asteroids) {
       if (!asteroid.active) { continue; }
-      const manifold = this.collisionSystem.testCircleVsCircle(asteroid, this.station);
-      if (manifold) {
-        const lethal = this.station.takeDamage(15);
-        this.cameraSystem.addTrauma(0.4);
-        this.cameraSystem.flash();
-        this.particleSystem.explodeMediumAsteroid(
-          asteroid.transform.position.x,
-          asteroid.transform.position.y
-        );
-        entityManager.unregister(asteroid);
-        this.asteroidPool.release(asteroid);
-
-        if (lethal || this.station.isDead) {
-          console.log('[GameScene] Station destroyed! Game Over.');
-        }
+      if (this.collisionSystem.testCircleVsCircle(asteroid, this.station)) {
+        this.handleAsteroidStation(asteroid);
+      }
+    }
+    for (const enemy of enemies) {
+      if (!enemy.active) { continue; }
+      if (this.collisionSystem.testCircleVsCircle(enemy, this.station)) {
+        this.handleEnemyStation(enemy);
       }
     }
   }
 
-  private handleProjectileHit(
-    projectile: Projectile,
-    asteroid: Asteroid
-  ): void {
-    const pos = asteroid.transform.position;
+  // ─── Collision Responses ──────────────────────────────────────────────────
 
-    // Damage asteroid
-    const lethal = asteroid.takeDamage(projectile.damage);
+  private handleProjectileAsteroid(proj: Projectile, asteroid: Asteroid): void {
+    const pos    = asteroid.transform.position.clone();
+    const lethal = asteroid.takeDamage(proj.damage);
 
-    // Spawn appropriate explosion
-    if (asteroid.size === AsteroidSize.LARGE) {
-      this.particleSystem.explodeLargeAsteroid(pos.x, pos.y);
-    } else if (asteroid.size === AsteroidSize.MEDIUM) {
-      this.particleSystem.explodeMediumAsteroid(pos.x, pos.y);
-    } else {
-      this.particleSystem.explodeSmallAsteroid(pos.x, pos.y);
-    }
+    // Explosion particles
+    if (asteroid.size === AsteroidSize.LARGE)  { this.particleSystem.explodeLargeAsteroid(pos.x, pos.y); }
+    else if (asteroid.size === AsteroidSize.MEDIUM) { this.particleSystem.explodeMediumAsteroid(pos.x, pos.y); }
+    else { this.particleSystem.explodeSmallAsteroid(pos.x, pos.y); }
 
-    this.cameraSystem.addTrauma(0.2);
+    this.cameraSystem.addTrauma(0.15);
 
     if (lethal) {
-      // Spawn fragments
-      const fragSize  = asteroid.fragmentSize;
-      const fragCount = asteroid.fragmentCount;
-
-      if (fragSize && fragCount > 0) {
-        for (let i = 0; i < fragCount; i++) {
-          const frag = this.asteroidPool.acquire();
-          if (!frag) { continue; }
-
-          const spreadAngle = MathUtils.randomRange(
-            -PhysicsConfig.FRAGMENT_SPREAD_ANGLE / 2,
-            PhysicsConfig.FRAGMENT_SPREAD_ANGLE / 2
-          );
-          const baseAngle = asteroid.rigidbody.velocity.angle() + spreadAngle;
-          const speed     = asteroid.rigidbody.velocity.magnitude() * 0.6
-                          + MathUtils.randomRange(40, 120);
-          const fragVel   = Vector2.fromAngle(baseAngle).scale(speed);
-          const fragPos   = pos.clone().add(
-            Vector2.fromAngle(MathUtils.randomRange(0, Math.PI * 2)).scale(10)
-          );
-
-          frag.init(fragPos, fragVel, fragSize);
-          entityManager.register(frag);
-        }
-      }
-
-      // Update score
-      this.score += asteroid.scoreValue;
-      hudData.score = this.score;
-
+      this.scoreManager.onAsteroidDestroyed(asteroid.size, pos);
+      this.spawnFragments(asteroid);
       entityManager.unregister(asteroid);
       this.asteroidPool.release(asteroid);
     }
 
-    // Remove projectile
-    entityManager.unregister(projectile);
-    this.projectilePool.release(projectile);
+    entityManager.unregister(proj);
+    this.projectilePool.release(proj);
   }
 
-  // ─── Main Game Loop ───────────────────────────────────────────────────────
+  private handleProjectileEnemy(proj: Projectile, enemy: DroneEnemy): void {
+    const pos    = enemy.transform.position.clone();
+    const lethal = enemy.takeDamage(proj.damage);
+
+    this.particleSystem.explodeEnemy(pos.x, pos.y);
+    this.cameraSystem.addTrauma(0.2);
+
+    if (lethal) {
+      this.scoreManager.onEnemyDestroyed(enemy.scoreValue, pos);
+      entityManager.unregister(enemy);
+      this.dronePool.release(enemy);
+    }
+
+    entityManager.unregister(proj);
+    this.projectilePool.release(proj);
+  }
+
+  private handleAsteroidStation(asteroid: Asteroid): void {
+    const pos = asteroid.transform.position.clone();
+    this.station.takeDamage(15);
+    this.cameraSystem.addTrauma(0.5);
+    this.cameraSystem.flash();
+    this.particleSystem.explodeMediumAsteroid(pos.x, pos.y);
+
+    entityManager.unregister(asteroid);
+    this.asteroidPool.release(asteroid);
+
+    if (this.station.isDead) { this.endGame(false); }
+  }
+
+  private handleEnemyStation(enemy: DroneEnemy): void {
+    const pos = enemy.transform.position.clone();
+    this.station.takeDamage(enemy.damage);
+    this.cameraSystem.addTrauma(0.6);
+    this.cameraSystem.flash();
+    this.particleSystem.explodeEnemy(pos.x, pos.y);
+
+    entityManager.unregister(enemy);
+    this.dronePool.release(enemy);
+
+    if (this.station.isDead) { this.endGame(false); }
+  }
+
+  // ─── Fragmentation ────────────────────────────────────────────────────────
+
+  private spawnFragments(asteroid: Asteroid): void {
+    const fragSize  = asteroid.fragmentSize;
+    const fragCount = asteroid.fragmentCount;
+    if (!fragSize || fragCount === 0) { return; }
+
+    const pos = asteroid.transform.position;
+
+    for (let i = 0; i < fragCount; i++) {
+      const frag = this.asteroidPool.acquire();
+      if (!frag) { continue; }
+
+      const spread = MathUtils.randomRange(
+        -PhysicsConfig.FRAGMENT_SPREAD_ANGLE / 2,
+        PhysicsConfig.FRAGMENT_SPREAD_ANGLE / 2
+      );
+      const baseAngle = asteroid.rigidbody.velocity.angle() + spread;
+      const speed     = asteroid.rigidbody.velocity.magnitude() * 0.5
+                      + MathUtils.randomRange(50, 150);
+      const fragVel   = Vector2.fromAngle(baseAngle).scale(speed);
+      const fragPos   = pos.clone().add(
+        Vector2.fromAngle(MathUtils.randomRange(0, Math.PI * 2)).scale(12)
+      );
+
+      frag.init(fragPos, fragVel, fragSize);
+      entityManager.register(frag);
+    }
+  }
+
+  // ─── Game End ─────────────────────────────────────────────────────────────
+
+  private endGame(victory: boolean): void {
+    if (this.gameOver) { return; }
+    this.gameOver = true;
+
+    if (victory) {
+      this.stateManager.triggerVictory();
+    } else {
+      this.stateManager.triggerGameOver();
+    }
+
+    const score       = this.scoreManager.currentScore;
+    const waveReached = this.waveSystem.currentWaveNumber;
+
+    // Delay before showing game over screen
+    this.time.delayedCall(1500, () => {
+      this.scene.stop(SceneKeys.UI);
+      this.scene.start(SceneKeys.GAME_OVER, {
+        victory,
+        score,
+        waveReached,
+      });
+    });
+  }
+
+  // ─── Main Loop ────────────────────────────────────────────────────────────
 
   update(_time: number, delta: number): void {
-    const entities = entityManager.getAll();
+    if (this.gameOver) { return; }
 
     // ── Input ──────────────────────────────────────────────────────────────
-    this.updateAim();
+    this.inputSystem.update();
+    const input = this.inputSystem.state;
 
-    // Fire on left mouse held
-    if (this.input.activePointer.isDown) {
-      this.fireProjectile();
+    // Pause
+    if (input.justPaused) {
+      console.log('[GameScene] Pause — coming in Phase 6');
     }
 
-    // ── Timers ─────────────────────────────────────────────────────────────
-    this.fireTimer.update(delta);
-    this.trailTimer.update(delta);
-    this.spawnTimer.update(delta);
+    // Aim station
+    this.station.aimAngle = input.aimAngle;
 
-    // Auto-spawn asteroids for demo
-    if (this.spawnTimer.isReady && entityManager.countByTag(Tags.ASTEROID) < 8) {
-      this.spawnAsteroid(MathUtils.randomBool(0.3) ? AsteroidSize.LARGE : AsteroidSize.MEDIUM);
-      this.spawnTimer.trigger();
+    // Fire
+    if (input.isFiring) {
+      const spawnR  = this.station.collider.radius + 14;
+      const spawnPos = new Vector2(
+        Math.cos(input.aimAngle) * spawnR,
+        Math.sin(input.aimAngle) * spawnR
+      );
+      this.weaponSystem.tryFire(spawnPos, input.aimAngle);
     }
+
+    // ── System updates ─────────────────────────────────────────────────────
+    this.weaponSystem.update(delta);
+    this.waveSystem.update(delta);
+    this.scoreManager.update(delta);
 
     // ── Entity updates ─────────────────────────────────────────────────────
     this.station.update(delta);
+    const entities = entityManager.getAll();
     for (const entity of entities) {
       entity.update(delta);
-    }
-
-    // ── Trail particles ────────────────────────────────────────────────────
-    if (this.trailTimer.isReady) {
-      for (const entity of entityManager.getByTag(Tags.PROJECTILE)) {
-        const pos = entity.transform.position;
-        this.particleSystem.spawnTrail(pos.x, pos.y, 0xffdd00);
-      }
-      this.trailTimer.trigger();
     }
 
     // ── Physics ────────────────────────────────────────────────────────────
     this.renderAlpha = this.physicsSystem.update(delta, entityManager.getAll());
 
-    // ── Collision Response ─────────────────────────────────────────────────
-    this.processCollisionResults();
+    // ── Collision responses ────────────────────────────────────────────────
+    this.processHits();
 
-    // ── Particle Update ────────────────────────────────────────────────────
+    // ── Particles + Camera ─────────────────────────────────────────────────
     this.particleSystem.update(delta);
-
-    // ── Camera ─────────────────────────────────────────────────────────────
     this.cameraSystem.update(delta);
 
-    // ── Trajectory Update ──────────────────────────────────────────────────
-    this.updateTrajectory();
+    // ── Trajectory ────────────────────────────────────────────────────────
+    const angle   = this.station.aimAngle;
+    const spawnR  = this.station.collider.radius + 14;
+    this.trajectory = this.trajectorySystem.predict(
+      new Vector2(Math.cos(angle) * spawnR, Math.sin(angle) * spawnR),
+      new Vector2(Math.cos(angle) * 900,    Math.sin(angle) * 900),
+      this.physicsSystem.currentGravityMultiplier
+    );
 
-    // ── HUD Data ───────────────────────────────────────────────────────────
-    hudData.stationHealth    = this.station.health;
-    hudData.stationMaxHealth = this.station.maxHealth;
-    hudData.shieldEnergy     = this.station.shieldEnergy;
-    hudData.shieldBroken     = this.station.shieldBroken;
-    hudData.activeEntities   = entities.length;
-    hudData.physicsStepMs    = this.physicsSystem.lastStepResult.stepTimeMs;
-    hudData.fps              = this.game.loop.actualFps;
-    hudData.enemiesRemaining = entityManager.countByTag(Tags.ASTEROID);
+    // ── HUD sync ───────────────────────────────────────────────────────────
+    const weaponState         = this.weaponSystem.getState();
+    hudData.stationHealth     = this.station.health;
+    hudData.stationMaxHealth  = this.station.maxHealth;
+    hudData.shieldEnergy      = this.station.shieldEnergy;
+    hudData.shieldMaxEnergy   = 100;
+    hudData.shieldBroken      = this.station.shieldBroken;
+    hudData.activeWeapon      = weaponState.type;
+    hudData.weaponHeat        = weaponState.heat;
+    hudData.weaponOverheated  = weaponState.overheated;
+    hudData.activeEntities    = entities.length;
+    hudData.physicsStepMs     = this.physicsSystem.lastStepResult.stepTimeMs;
+    hudData.fps               = this.game.loop.actualFps;
+    hudData.waveNumber        = this.waveSystem.currentWaveNumber;
+    hudData.waveCountdown     = this.waveSystem.countdownSeconds;
+    hudData.waveComplete      = this.waveSystem.isComplete;
 
     // ── Render ─────────────────────────────────────────────────────────────
     this.renderSystem.render(
@@ -402,10 +489,13 @@ export class GameScene extends Phaser.Scene {
     );
   }
 
+  // ─── Cleanup ──────────────────────────────────────────────────────────────
+
   shutdown(): void {
     eventBus.clearAll();
     entityManager.clear();
     this.renderSystem.destroy();
     this.cameraSystem.destroy();
+    this.gameOver = false;
   }
 }

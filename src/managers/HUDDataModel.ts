@@ -48,11 +48,13 @@ export class HUDDataModel {
   comboTimeLeft:    number = 0; // Seconds until combo expires
 
   // ─── Wave Info ───────────────────────────────────────────────────────────
-  waveNumber:         number = 1;
-  totalWaves:         number = 10;
-  enemiesRemaining:   number = 0;
-  enemiesTotal:       number = 0;
-  waveTimeElapsed:    number = 0; // Seconds since wave started
+    waveNumber:         number = 1;
+    totalWaves:         number = 10;
+    enemiesRemaining:   number = 0;
+    enemiesTotal:       number = 0;
+    waveTimeElapsed:    number = 0;
+    waveCountdown:      number = 0;   
+    waveComplete:       boolean = false; 
 
   // ─── Resources ───────────────────────────────────────────────────────────
   resourceCount:    number = 0;
@@ -95,6 +97,8 @@ export class HUDDataModel {
     this.comboTimeLeft    = 0;
     this.waveNumber       = 1;
     this.enemiesRemaining = 0;
+    this.waveCountdown    = 0;
+    this.waveComplete     = false;
     this.resourceCount    = 0;
     this.radarEntities    = [];
   }
