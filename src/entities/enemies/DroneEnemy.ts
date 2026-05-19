@@ -42,10 +42,8 @@ export class DroneEnemy extends EnemyBase {
 
   // ─── AI Update ────────────────────────────────────────────────────────────
 
-  update(deltaMs: number): void {
+  update(_deltaMs: number): void {
     if (!this.active || this.isDead) { return; }
-
-    const dt = deltaMs / 1000;
 
     // Steer toward world origin (station position)
     const toStation = this.transform.position.negated().normalized();
