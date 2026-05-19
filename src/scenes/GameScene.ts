@@ -29,6 +29,7 @@ import { Station } from '@entities/Station';
 import { DroneEnemy } from '@entities/enemies/DroneEnemy';
 import { AsteroidSize, WeaponType, WaveDefinition } from '@typedefs/GameTypes';
 import { TrajectoryPoint } from '@typedefs/PhysicsTypes';
+import { UpgradeManager } from '@managers/UpdateManager';
 
 export class GameScene extends Phaser.Scene {
   // ── Systems ──────────────────────────────────────────────────────────────
@@ -59,6 +60,8 @@ export class GameScene extends Phaser.Scene {
   private renderAlpha:  number = 0;
   private gameOver:     boolean = false;
 
+  private upgradeManager!: UpgradeManager;
+
   constructor() {
     super({ key: SceneKeys.GAME });
   }
@@ -73,6 +76,7 @@ export class GameScene extends Phaser.Scene {
     // Reset all singletons for new game
     entityManager.clear();
     hudData.reset();
+    this.upgradeManager = new UpgradeManager();
 
     // ── Systems ────────────────────────────────────────────────────────────
     this.gravitySystem    = new GravitySystem();
@@ -213,6 +217,26 @@ export class GameScene extends Phaser.Scene {
       const d = data as { waveNumber: number };
       this.scoreManager.onWaveComplete(d.waveNumber);
       hudData.waveComplete = true;
+
+      // Award resources for wave completion (10-30 per wave)
+      const resourceReward = 10 + d.waveNumber * 4;
+      this.upgradeManager.addResources(resourceReward);
+      hudData.resourceCount = this.upgradeManager.currentResources;
+
+      // Launch upgrade shop after short delay
+      this.time.delayedCall(2000, () => {
+        if (this.gameOver) { return; }
+        this.scene.pause(SceneKeys.GAME);
+        this.scene.launch(SceneKeys.UPGRADE, {
+          upgradeManager: this.upgradeManager,
+          waveNumber:     d.waveNumber,
+          onComplete:     () => {
+            hudData.waveComplete = false;
+            hudData.resourceCount = this.upgradeManager.currentResources;
+            this.scene.resume(SceneKeys.GAME);
+          },
+        });
+      });
     });
 
     eventBus.on(GameEvents.WAVE_STARTED, (data: unknown) => {
@@ -415,8 +439,9 @@ export class GameScene extends Phaser.Scene {
     const input = this.inputSystem.state;
 
     // Pause
-    if (input.justPaused) {
-      console.log('[GameScene] Pause — coming in Phase 6');
+    if (input.justPaused && !this.gameOver) {
+      this.scene.pause(SceneKeys.GAME);
+      this.scene.launch(SceneKeys.PAUSE);
     }
 
     // Aim station
@@ -479,6 +504,7 @@ export class GameScene extends Phaser.Scene {
     hudData.waveNumber        = this.waveSystem.currentWaveNumber;
     hudData.waveCountdown     = this.waveSystem.countdownSeconds;
     hudData.waveComplete      = this.waveSystem.isComplete;
+    hudData.resourceCount     = this.upgradeManager.currentResources;
 
     // ── Render ─────────────────────────────────────────────────────────────
     this.renderSystem.render(

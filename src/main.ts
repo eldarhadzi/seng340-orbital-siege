@@ -1,12 +1,14 @@
-// src/main.ts — Phase 5
+// src/main.ts — Phase 6
 import Phaser from 'phaser';
-import { GameConfig } from '@config/GameConfig';
+import { GameConfig }    from '@config/GameConfig';
 import { BootScene }     from '@scenes/BootScene';
 import { PreloadScene }  from '@scenes/PreloadScene';
 import { MainMenuScene } from '@scenes/MainMenuScene';
 import { GameScene }     from '@scenes/GameScene';
 import { UIScene }       from '@scenes/UIScene';
 import { GameOverScene } from '@scenes/GameOverScene';
+import { PauseScene }    from '@scenes/PauseScene';
+import { UpgradeScene }  from '@scenes/UpgradeScene';
 
 const config: Phaser.Types.Core.GameConfig = {
   ...GameConfig,
@@ -17,6 +19,8 @@ const config: Phaser.Types.Core.GameConfig = {
     GameScene,
     UIScene,
     GameOverScene,
+    PauseScene,
+    UpgradeScene,
   ],
 };
 
