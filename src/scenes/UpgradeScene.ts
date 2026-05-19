@@ -19,7 +19,7 @@ interface UpgradeSceneData {
 
 export class UpgradeScene extends Phaser.Scene {
   private upgradeCards: UpgradeCard[] = [];
-  private data!:        UpgradeSceneData;
+  private sceneData!:   UpgradeSceneData;
   private selected:     boolean = false;
 
   constructor() {
@@ -27,7 +27,7 @@ export class UpgradeScene extends Phaser.Scene {
   }
 
   init(data: UpgradeSceneData): void {
-    this.data     = data;
+    this.sceneData     = data;
     this.selected = false;
   }
 
@@ -42,7 +42,7 @@ export class UpgradeScene extends Phaser.Scene {
     overlay.fillRect(0, 0, W, RenderConfig.HEIGHT);
 
     // Header
-    this.add.text(cx, 60, `WAVE ${this.data.waveNumber} COMPLETE`, {
+    this.add.text(cx, 60, `WAVE ${this.sceneData.waveNumber} COMPLETE`, {
       fontFamily: 'monospace',
       fontSize:   '32px',
       color:      '#44ff88',
@@ -57,14 +57,14 @@ export class UpgradeScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // Resources display
-    this.add.text(cx, 136, `◆  ${this.data.upgradeManager.currentResources} RESOURCES AVAILABLE`, {
+    this.add.text(cx, 136, `◆  ${this.sceneData.upgradeManager.currentResources} RESOURCES AVAILABLE`, {
       fontFamily: 'monospace',
       fontSize:   '14px',
       color:      '#44ff88',
     }).setOrigin(0.5);
 
     // Upgrade cards
-    const options  = this.data.upgradeManager.getUpgradeOptions(3);
+    const options  = this.sceneData.upgradeManager.getUpgradeOptions(3);
     const cardW    = 260;
     const cardH    = 230;
     const spacing  = 40;
@@ -79,7 +79,7 @@ export class UpgradeScene extends Phaser.Scene {
         width:     cardW,
         height:    cardH,
         upgrade,
-        canAfford: this.data.upgradeManager.canAfford(upgrade),
+        canAfford: this.sceneData.upgradeManager.canAfford(upgrade),
         onSelect:  (u) => { this.selectUpgrade(u); },
       });
       this.upgradeCards.push(card);
@@ -109,7 +109,7 @@ export class UpgradeScene extends Phaser.Scene {
     if (this.selected) { return; }
     this.selected = true;
 
-    const purchased = this.data.upgradeManager.purchase(upgrade);
+    const purchased = this.sceneData.upgradeManager.purchase(upgrade);
     if (purchased) {
       // Show confirmation
       const cx = RenderConfig.WIDTH / 2;
@@ -128,6 +128,6 @@ export class UpgradeScene extends Phaser.Scene {
   private complete(): void {
     this.upgradeCards.forEach(c => c.destroy());
     this.scene.stop();
-    if (this.data.onComplete) { this.data.onComplete(); }
+    if (this.sceneData.onComplete) { this.sceneData.onComplete(); }
   }
 }
