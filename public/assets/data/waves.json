@@ -1,0 +1,114 @@
+{
+  "waves": [
+    {
+      "waveNumber": 1,
+      "asteroidCount": 4,
+      "asteroidSizes": ["LARGE", "LARGE", "MEDIUM", "MEDIUM"],
+      "enemyCount": 0,
+      "enemyTypes": [],
+      "spawnPattern": "RADIAL",
+      "spawnIntervalMs": 1200,
+      "gravityMultiplier": 1.0,
+      "specialEvents": []
+    },
+    {
+      "waveNumber": 2,
+      "asteroidCount": 5,
+      "asteroidSizes": ["LARGE", "LARGE", "MEDIUM", "MEDIUM", "SMALL"],
+      "enemyCount": 0,
+      "enemyTypes": [],
+      "spawnPattern": "RADIAL",
+      "spawnIntervalMs": 1000,
+      "gravityMultiplier": 1.05,
+      "specialEvents": []
+    },
+    {
+      "waveNumber": 3,
+      "asteroidCount": 5,
+      "asteroidSizes": ["LARGE", "LARGE", "MEDIUM", "MEDIUM", "SMALL"],
+      "enemyCount": 1,
+      "enemyTypes": ["DRONE"],
+      "spawnPattern": "RADIAL",
+      "spawnIntervalMs": 900,
+      "gravityMultiplier": 1.1,
+      "specialEvents": []
+    },
+    {
+      "waveNumber": 4,
+      "asteroidCount": 6,
+      "asteroidSizes": ["LARGE", "LARGE", "LARGE", "MEDIUM", "MEDIUM", "SMALL"],
+      "enemyCount": 2,
+      "enemyTypes": ["DRONE", "DRONE"],
+      "spawnPattern": "DIRECTIONAL",
+      "spawnIntervalMs": 800,
+      "gravityMultiplier": 1.15,
+      "specialEvents": []
+    },
+    {
+      "waveNumber": 5,
+      "asteroidCount": 7,
+      "asteroidSizes": ["LARGE","LARGE","LARGE","MEDIUM","MEDIUM","SMALL","SMALL"],
+      "enemyCount": 3,
+      "enemyTypes": ["DRONE", "DRONE", "DRONE"],
+      "spawnPattern": "CLUSTER",
+      "spawnIntervalMs": 700,
+      "gravityMultiplier": 1.2,
+      "specialEvents": []
+    },
+    {
+      "waveNumber": 6,
+      "asteroidCount": 8,
+      "asteroidSizes": ["LARGE","LARGE","LARGE","LARGE","MEDIUM","MEDIUM","SMALL","SMALL"],
+      "enemyCount": 3,
+      "enemyTypes": ["DRONE", "DRONE", "DRONE"],
+      "spawnPattern": "RADIAL",
+      "spawnIntervalMs": 600,
+      "gravityMultiplier": 1.25,
+      "specialEvents": []
+    },
+    {
+      "waveNumber": 7,
+      "asteroidCount": 8,
+      "asteroidSizes": ["LARGE","LARGE","LARGE","LARGE","MEDIUM","MEDIUM","MEDIUM","SMALL"],
+      "enemyCount": 4,
+      "enemyTypes": ["DRONE","DRONE","DRONE","DRONE"],
+      "spawnPattern": "DIRECTIONAL",
+      "spawnIntervalMs": 550,
+      "gravityMultiplier": 1.3,
+      "specialEvents": []
+    },
+    {
+      "waveNumber": 8,
+      "asteroidCount": 9,
+      "asteroidSizes": ["LARGE","LARGE","LARGE","LARGE","LARGE","MEDIUM","MEDIUM","SMALL","SMALL"],
+      "enemyCount": 4,
+      "enemyTypes": ["DRONE","DRONE","DRONE","DRONE"],
+      "spawnPattern": "CLUSTER",
+      "spawnIntervalMs": 500,
+      "gravityMultiplier": 1.35,
+      "specialEvents": []
+    },
+    {
+      "waveNumber": 9,
+      "asteroidCount": 10,
+      "asteroidSizes": ["LARGE","LARGE","LARGE","LARGE","LARGE","MEDIUM","MEDIUM","MEDIUM","SMALL","SMALL"],
+      "enemyCount": 5,
+      "enemyTypes": ["DRONE","DRONE","DRONE","DRONE","DRONE"],
+      "spawnPattern": "RADIAL",
+      "spawnIntervalMs": 450,
+      "gravityMultiplier": 1.4,
+      "specialEvents": []
+    },
+    {
+      "waveNumber": 10,
+      "asteroidCount": 12,
+      "asteroidSizes": ["LARGE","LARGE","LARGE","LARGE","LARGE","LARGE","MEDIUM","MEDIUM","MEDIUM","SMALL","SMALL","SMALL"],
+      "enemyCount": 6,
+      "enemyTypes": ["DRONE","DRONE","DRONE","DRONE","DRONE","DRONE"],
+      "spawnPattern": "CLUSTER",
+      "spawnIntervalMs": 400,
+      "gravityMultiplier": 1.5,
+      "specialEvents": []
+    }
+  ]
+}
