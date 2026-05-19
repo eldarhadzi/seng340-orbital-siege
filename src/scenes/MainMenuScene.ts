@@ -7,11 +7,13 @@ import { SceneKeys } from '@utils/Constants';
 import { RenderConfig } from '@config/RenderConfig';
 import { MathUtils } from '@utils/MathUtils';
 import { saveManager } from '@managers/SaveManager';
+import { AudioSystem, MusicState } from '@systems/AudioSystem';
 
 export class MainMenuScene extends Phaser.Scene {
   private bgGfx!:       Phaser.GameObjects.Graphics;
   private stars:        { x: number; y: number; r: number; a: number }[] = [];
   private _elapsed: number = 0;
+  private audioSystem!: AudioSystem;
   private menuItems:    Phaser.GameObjects.Text[] = [];
 
   constructor() {
@@ -85,6 +87,13 @@ export class MainMenuScene extends Phaser.Scene {
       txt.on('pointerdown',  btn.action);
 
       this.menuItems.push(txt);
+    });
+
+    // Menu music — starts on first click due to browser autoplay policy
+    this.audioSystem = new AudioSystem(this);
+    this.input.once('pointerdown', () => {
+      this.audioSystem.init();
+      this.audioSystem.setMusicState(MusicState.MENU);
     });
 
     // ── Credits ──────────────────────────────────────────────────────────

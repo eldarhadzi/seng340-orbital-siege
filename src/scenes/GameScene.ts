@@ -30,6 +30,7 @@ import { DroneEnemy } from '@entities/enemies/DroneEnemy';
 import { AsteroidSize, WeaponType, WaveDefinition } from '@typedefs/GameTypes';
 import { TrajectoryPoint } from '@typedefs/PhysicsTypes';
 import { UpgradeManager } from '@managers/UpdateManager';
+import { AudioSystem, MusicState } from '@systems/AudioSystem';
 
 export class GameScene extends Phaser.Scene {
   // ── Systems ──────────────────────────────────────────────────────────────
@@ -46,6 +47,8 @@ export class GameScene extends Phaser.Scene {
   private waveSystem!:       WaveSystem;
   private scoreManager!:     ScoreManager;
   private stateManager!:     StateManager;
+
+  private audioSystem!: AudioSystem;
 
   // ── Pools ─────────────────────────────────────────────────────────────────
   private asteroidPool!:  ObjectPool<Asteroid>;
@@ -142,6 +145,13 @@ export class GameScene extends Phaser.Scene {
     this.input.keyboard!.on('keydown-TWO', () => {
       this.weaponSystem.switchWeapon(WeaponType.MISSILE);
     });
+
+    // ── Audio system ───────────────────────────────────────────────────────
+    this.audioSystem = new AudioSystem(this);
+    this.audioSystem.init();
+    this.audioSystem.wireEvents();
+    this.audioSystem.setMusicState(MusicState.GAMEPLAY);
+    this.audioSystem.startAmbient();
 
     // ── Load wave data and start ───────────────────────────────────────────
     this.loadAndStartWaves();
@@ -317,6 +327,12 @@ export class GameScene extends Phaser.Scene {
     else if (asteroid.size === AsteroidSize.MEDIUM) { this.particleSystem.explodeMediumAsteroid(pos.x, pos.y); }
     else { this.particleSystem.explodeSmallAsteroid(pos.x, pos.y); }
 
+    // Emit for AudioSystem
+    eventBus.emit(GameEvents.ASTEROID_DESTROYED, {
+      size:     asteroid.size as string,
+      position: { x: pos.x, y: pos.y },
+    });
+
     this.cameraSystem.addTrauma(0.15);
 
     if (lethal) {
@@ -337,6 +353,11 @@ export class GameScene extends Phaser.Scene {
     this.particleSystem.explodeEnemy(pos.x, pos.y);
     this.cameraSystem.addTrauma(0.2);
 
+    // Emit for AudioSystem
+    eventBus.emit(GameEvents.ENEMY_DESTROYED, {
+      position: { x: pos.x, y: pos.y },
+    });
+
     if (lethal) {
       this.scoreManager.onEnemyDestroyed(enemy.scoreValue, pos);
       entityManager.unregister(enemy);
@@ -352,6 +373,7 @@ export class GameScene extends Phaser.Scene {
     this.station.takeDamage(15);
     this.cameraSystem.addTrauma(0.5);
     this.cameraSystem.flash();
+    eventBus.emit(GameEvents.STATION_DAMAGED, {});
     this.particleSystem.explodeMediumAsteroid(pos.x, pos.y);
 
     entityManager.unregister(asteroid);
@@ -365,6 +387,7 @@ export class GameScene extends Phaser.Scene {
     this.station.takeDamage(enemy.damage);
     this.cameraSystem.addTrauma(0.6);
     this.cameraSystem.flash();
+    eventBus.emit(GameEvents.STATION_DAMAGED, {});
     this.particleSystem.explodeEnemy(pos.x, pos.y);
 
     entityManager.unregister(enemy);
@@ -455,6 +478,7 @@ export class GameScene extends Phaser.Scene {
         Math.sin(input.aimAngle) * spawnR
       );
       this.weaponSystem.tryFire(spawnPos, input.aimAngle);
+      this.audioSystem.resumeContext().catch(() => {});
     }
 
     // ── System updates ─────────────────────────────────────────────────────
@@ -478,6 +502,11 @@ export class GameScene extends Phaser.Scene {
     // ── Particles + Camera ─────────────────────────────────────────────────
     this.particleSystem.update(delta);
     this.cameraSystem.update(delta);
+
+    // ── Ambient intensity ─────────────────────────────────────────────────
+    const enemyCount   = entityManager.countByTag(Tags.ENEMY);
+    const threatLevel  = Math.min(enemyCount / 5, 1.0);
+    this.audioSystem.updateAmbientIntensity(threatLevel);
 
     // ── Trajectory ────────────────────────────────────────────────────────
     const angle   = this.station.aimAngle;
@@ -523,5 +552,6 @@ export class GameScene extends Phaser.Scene {
     this.renderSystem.destroy();
     this.cameraSystem.destroy();
     this.gameOver = false;
+    this.audioSystem.destroy();
   }
 }
